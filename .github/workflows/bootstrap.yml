@@ -1,6 +1,6 @@
 # Bootstrap workflow: create the initial scaffold files and commit them to the repo.
 # Usage:
-# 1) In your repo create a new file at .github/workflows/bootstrap.yml and paste this content.
+# 1) In your repo create/update the file at .github/workflows/bootstrap.yml and paste this content.
 # 2) Commit to main.
 # 3) In GitHub, open Actions → Bootstrap scaffold → Run workflow → Run workflow.
 #
@@ -548,90 +548,6 @@ model TransactionTimeline {
   createdBy       String
   transaction     Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
   @@map("transaction_timeline")
-}
-EOF
-
-          # apps/web/package.json
-          cat > apps/web/package.json <<'EOF'
-{
-  "name": "real-estate-web",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev -p 3000",
-    "build": "next build",
-    "start": "next start"
-  },
-  "dependencies": {
-    "axios": "^1.4.0",
-    "next": "14.0.0",
-    "react": "18.2.0",
-    "react-dom": "18.2.0"
-  }
-}
-EOF
-
-          # apps/web/README.md
-          cat > apps/web/README.md <<'EOF'
-Next.js frontend placeholder.
-
-Quick start:
-
-cd apps/web
-npm ci
-# create .env.local from ../../.env.example and set NEXT_PUBLIC_API_URL
-npm run dev
-EOF
-
-          # apps/web/src/pages/upload.tsx
-          cat > apps/web/src/pages/upload.tsx <<'EOF'
-import React, { useState } from 'react';
-import axios from 'axios';
-
-export default function UploadPage() {
-  const [file, setFile] = useState<File | null>(null);
-  const [status, setStatus] = useState<string | null>(null);
-
-  async function handleUpload() {
-    if (!file) return setStatus('Select a file first');
-    setStatus('Requesting presigned URL...');
-    try {
-      const resp = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/uploads/presign`, {
-        filename: file.name,
-        contentType: file.type || 'application/octet-stream'
-      });
-      const { url } = resp.data;
-      setStatus('Uploading to S3...');
-      await axios.put(url, file, {
-        headers: { 'Content-Type': file.type }
-      });
-      setStatus('Upload complete');
-    } catch (err: any) {
-      console.error(err);
-      setStatus('Upload failed: ' + (err.message || JSON.stringify(err)));
-    }
-  }
-
-  return (
-    <div style={{ padding: 20 }}>
-      <h2>File Upload (presigned PUT)</h2>
-      <input onChange={(e) => setFile(e.target.files?.[0] ?? null)} type="file" />
-      <div style={{ marginTop: 10 }}>
-        <button onClick={handleUpload}>Upload</button>
-      </div>
-      {status && <p>{status}</p>}
-    </div>
-  );
-}
-EOF
-
-          # packages/shared/package.json
-          cat > packages/shared/package.json <<'EOF'
-{
-  "name": "@real-estate/shared",
-  "version": "0.1.0",
-  "private": true,
-  "main": "index.js"
 }
 EOF
 
