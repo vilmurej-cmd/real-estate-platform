@@ -1,1 +1,28 @@
+name: Bootstrap test
 
+permissions:
+  contents: write
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create marker file
+        run: echo "bootstrap-ok: $(date -u +"%Y-%m-%dT%H:%M:%SZ")" > BOOTSTRAP_OK.txt
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit and push marker
+        run: |
+          git add BOOTSTRAP_OK.txt
+          git commit -m "test: bootstrap marker" || echo "no changes to commit"
+          git push origin HEAD:main
