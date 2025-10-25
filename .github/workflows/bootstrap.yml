@@ -19,11 +19,15 @@ jobs:
             const files = {
               "README.md": `# Real Estate Platform
 
+Monorepo scaffold for the Real Estate Transaction Management Platform.
+
 Structure:
 - apps/web: Next.js (frontend placeholder)
 - apps/api: Express + TypeScript + Prisma (backend)
 - packages/shared: shared types/utilities
 
+This initial commit includes a minimal scaffold, Prisma schema, example .env, and CI workflow.
+See docs in the repository for setup steps.
 `,
               ".gitignore": `node_modules
 .env
