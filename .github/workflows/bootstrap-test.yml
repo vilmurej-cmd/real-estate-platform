@@ -14,7 +14,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Create marker file
-        run: echo "bootstrap-ok: $(date -u +"%Y-%m-%dT%H:%M:%SZ")" > BOOTSTRAP_OK.txt
+        run: |
+          # create an ISO8601 UTC timestamp and write the marker file
+          DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          echo "bootstrap-ok: $DATE" > BOOTSTRAP_OK.txt
 
       - name: Configure git
         run: |
@@ -23,6 +26,10 @@ jobs:
 
       - name: Commit and push marker
         run: |
-          git add BOOTSTRAP_OK.txt
-          git commit -m "test: bootstrap marker" || echo "no changes to commit"
-          git push origin HEAD:main
+          git add BOOTSTRAP_OK.txt || true
+          if git diff --staged --quiet; then
+            echo "no changes to commit"
+          else
+            git commit -m "test: bootstrap marker"
+            git push origin HEAD:main
+          fi
