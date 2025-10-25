@@ -1,3 +1,8 @@
+# Bootstrap workflow: create the initial scaffold files and commit them to the repo.
+# Usage:
+# 1) In your repo update .github/workflows/bootstrap.yml with this content.
+# 2) Commit to main.
+# 3) In GitHub, open Actions → Bootstrap scaffold → Run workflow → Run workflow.
 name: Bootstrap scaffold
 
 permissions:
@@ -15,18 +20,21 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Git user
+      - name: Setup git identity
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Create scaffold files
+      - name: Create directories
         run: |
-          set -euo pipefail
-          # create directories
-          mkdir -p .github/workflows apps/api/src apps/api/prisma apps/web/src/pages packages/shared
+          mkdir -p .github/workflows
+          mkdir -p apps/api/src
+          mkdir -p apps/api/prisma
+          mkdir -p apps/web/src/pages
+          mkdir -p packages/shared
 
-          # README.md
+      - name: Create README.md
+        run: |
           cat > README.md <<'EOF'
 # Real Estate Platform
 
@@ -41,7 +49,8 @@ This initial commit includes a minimal scaffold, Prisma schema, example .env, an
 See docs in the repository for setup steps.
 EOF
 
-          # .gitignore
+      - name: Create .gitignore and .env.example
+        run: |
           cat > .gitignore <<'EOF'
 node_modules
 .env
@@ -54,7 +63,6 @@ node_modules
 .DS_Store
 EOF
 
-          # .env.example
           cat > .env.example <<'EOF'
 # Frontend
 NEXT_PUBLIC_API_URL=http://localhost:4000/api/v1
@@ -83,7 +91,8 @@ DOCUSIGN_CLIENT_ID=your-docusign-client-id
 DOCUSIGN_CLIENT_SECRET=your-docusign-client-secret
 EOF
 
-          # CI workflow placeholder
+      - name: Create CI workflow placeholder
+        run: |
           cat > .github/workflows/ci.yml <<'EOF'
 name: CI
 
@@ -116,7 +125,8 @@ jobs:
         run: echo "No tests configured yet"
 EOF
 
-          # apps/api/package.json
+      - name: Write backend package & tsconfig
+        run: |
           cat > apps/api/package.json <<'EOF'
 {
   "name": "real-estate-api",
@@ -154,7 +164,6 @@ EOF
 }
 EOF
 
-          # apps/api/tsconfig.json
           cat > apps/api/tsconfig.json <<'EOF'
 {
   "compilerOptions": {
@@ -171,7 +180,8 @@ EOF
 }
 EOF
 
-          # apps/api/src/index.ts
+      - name: Write backend source files
+        run: |
           cat > apps/api/src/index.ts <<'EOF'
 import express from 'express';
 import cors from 'cors';
@@ -210,7 +220,6 @@ app.listen(PORT, () => {
 });
 EOF
 
-          # apps/api/src/routes/health.routes.ts
           cat > apps/api/src/routes/health.routes.ts <<'EOF'
 import { Router } from 'express';
 const router = Router();
@@ -222,7 +231,6 @@ router.get('/', (_req, res) => {
 export default router;
 EOF
 
-          # apps/api/src/middleware/auth.middleware.ts
           cat > apps/api/src/middleware/auth.middleware.ts <<'EOF'
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
@@ -245,7 +253,6 @@ export const authenticateToken = (req: AuthRequest, res: Response, next: NextFun
 };
 EOF
 
-          # apps/api/src/services/s3.service.ts
           cat > apps/api/src/services/s3.service.ts <<'EOF'
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
@@ -274,7 +281,6 @@ export async function getPresignedUploadUrl(filename: string, contentType: strin
 }
 EOF
 
-          # apps/api/src/routes/upload.routes.ts
           cat > apps/api/src/routes/upload.routes.ts <<'EOF'
 import { Router } from 'express';
 import { getPresignedUploadUrl } from '../services/s3.service';
@@ -302,13 +308,13 @@ router.post('/presign', async (req, res, next) => {
 export default router;
 EOF
 
-          # apps/api/prisma/seed.ts
+      - name: Write prisma seed & schema
+        run: |
           cat > apps/api/prisma/seed.ts <<'EOF'
 import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
-  // Create a sample user (passwords are not stored here; use Auth0 for auth in production)
   const user = await prisma.user.upsert({
     where: { email: 'admin@example.com' },
     update: {},
@@ -333,7 +339,6 @@ main()
   });
 EOF
 
-          # apps/api/prisma/schema.prisma
           cat > apps/api/prisma/schema.prisma <<'EOF'
 generator client {
   provider = "prisma-client-js"
@@ -365,180 +370,78 @@ model User {
   messageTemplates MessageTemplate[]
   @@map("users")
 }
+EOF
 
-model Client {
-  id              String    @id @default(uuid())
-  userId          String
-  type            String
-  stage           String    @default("lead")
-  status          String    @default("warm")
-  leadScore       Int?      @default(0)
-  source          String?
-  firstName       String
-  lastName        String
-  email           String
-  phone           String?
-  preferences     Json?
-  notes           String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  buyerTransactions  Transaction[] @relation("BuyerClient")
-  sellerTransactions Transaction[] @relation("SellerClient")
-  timeline        ClientTimeline[]
-  appointments    Appointment[]
-  documents       Document[]
-  messages        Message[]
-  @@map("clients")
+      - name: Write web package & page
+        run: |
+          cat > apps/web/package.json <<'EOF'
+{
+  "name": "real-estate-web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "axios": "^1.4.0",
+    "next": "14.0.0",
+    "react": "18.2.0",
+    "react-dom": "18.2.0"
+  }
 }
+EOF
 
-model Transaction {
-  id              String    @id @default(uuid())
-  userId          String
-  buyerClientId   String?
-  sellerClientId  String?
-  transactionType String
-  status          String    @default("pending")
-  propertyAddress Json
-  listPrice       Decimal?
-  finalPrice      Decimal?
-  contractDate    DateTime?
-  closingDate     DateTime?
-  commissionEarned Decimal?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  buyerClient     Client?   @relation("BuyerClient", fields: [buyerClientId], references: [id])
-  sellerClient    Client?   @relation("SellerClient", fields: [sellerClientId], references: [id])
-  milestones      Milestone[]
-  parties         TransactionParty[]
-  timeline        TransactionTimeline[]
-  documents       Document[]
-  appointments    Appointment[]
-  messages        Message[]
-  @@map("transactions")
+          cat > apps/web/src/pages/upload.tsx <<'EOF'
+import React, { useState } from 'react';
+import axios from 'axios';
+
+export default function UploadPage() {
+  const [file, setFile] = useState<File | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+
+  async function handleUpload() {
+    if (!file) return setStatus('Select a file first');
+    setStatus('Requesting presigned URL...');
+    try {
+      const resp = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/uploads/presign`, {
+        filename: file.name,
+        contentType: file.type || 'application/octet-stream'
+      });
+      const { url } = resp.data;
+      setStatus('Uploading to S3...');
+      await axios.put(url, file, {
+        headers: { 'Content-Type': file.type }
+      });
+      setStatus('Upload complete');
+    } catch (err: any) {
+      console.error(err);
+      setStatus('Upload failed: ' + (err.message || JSON.stringify(err)));
+    }
+  }
+
+  return (
+    <div style={{ padding: 20 }}>
+      <h2>File Upload (presigned PUT)</h2>
+      <input onChange={(e) => setFile(e.target.files?.[0] ?? null)} type="file" />
+      <div style={{ marginTop: 10 }}>
+        <button onClick={handleUpload}>Upload</button>
+      </div>
+      {status && <p>{status}</p>}
+    </div>
+  );
 }
+EOF
 
-model Milestone {
-  id              String    @id @default(uuid())
-  transactionId   String
-  milestoneType   String
-  name            String
-  dueDate         DateTime?
-  completedDate   DateTime?
-  status          String    @default("pending")
-  responsibleParty String?
-  createdAt       DateTime  @default(now())
-  transaction     Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-  @@map("milestones")
-}
-
-model TransactionParty {
-  id              String    @id @default(uuid())
-  transactionId   String
-  partyType       String
-  companyName     String?
-  contactName     String
-  email           String?
-  phone           String?
-  createdAt       DateTime  @default(now())
-  transaction     Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-  @@map("transaction_parties")
-}
-
-model Document {
-  id              String    @id @default(uuid())
-  userId          String
-  transactionId   String?
-  clientId        String?
-  category        String
-  documentType    String?
-  filename        String
-  storagePath     String
-  fileSize        Int?
-  aiProcessed     Boolean   @default(false)
-  aiExtractedData Json?
-  status          String    @default("active")
-  createdAt       DateTime  @default(now())
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  transaction     Transaction? @relation(fields: [transactionId], references: [id])
-  client          Client?   @relation(fields: [clientId], references: [id])
-  @@map("documents")
-}
-
-model Appointment {
-  id              String    @id @default(uuid())
-  userId          String
-  clientId        String?
-  transactionId   String?
-  appointmentType String
-  title           String
-  location        Json?
-  startTime       DateTime
-  endTime         DateTime
-  status          String    @default("scheduled")
-  notes           String?
-  createdAt       DateTime  @default(now())
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  client          Client?   @relation(fields: [clientId], references: [id])
-  transaction     Transaction? @relation(fields: [transactionId], references: [id])
-  @@map("appointments")
-}
-
-model Message {
-  id              String    @id @default(uuid())
-  userId          String
-  clientId        String?
-  transactionId   String?
-  messageType     String
-  direction       String
-  subject         String?
-  body            String
-  status          String    @default("sent")
-  openedAt        DateTime?
-  createdAt       DateTime  @default(now())
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  client          Client?   @relation(fields: [clientId], references: [id])
-  transaction     Transaction? @relation(fields: [transactionId], references: [id])
-  @@map("messages")
-}
-
-model MessageTemplate {
-  id              String    @id @default(uuid())
-  userId          String
-  name            String
-  category        String
-  subject         String?
-  body            String
-  variables       Json?
-  usageCount      Int       @default(0)
-  createdAt       DateTime  @default(now())
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  @@map("message_templates")
-}
-
-model ClientTimeline {
-  id              String    @id @default(uuid())
-  clientId        String
-  eventType       String
-  eventDate       DateTime  @default(now())
-  summary         String
-  details         Json?
-  createdBy       String
-  client          Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  @@map("client_timeline")
-}
-
-model TransactionTimeline {
-  id              String    @id @default(uuid())
-  transactionId   String
-  eventType       String
-  eventDate       DateTime  @default(now())
-  summary         String
-  details         Json?
-  createdBy       String
-  transaction     Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-  @@map("transaction_timeline")
+      - name: Write packages/shared package.json
+        run: |
+          cat > packages/shared/package.json <<'EOF'
+{
+  "name": "@real-estate/shared",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.js"
 }
 EOF
 
@@ -546,24 +449,19 @@ EOF
         env:
           GIT_BRANCH: main
         run: |
-          # Add and commit if there are changes
           git add -A
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
             git commit -m "chore: bootstrap scaffold (monorepo: apps/api, apps/web, prisma, ci)"
-            # Push back to main
             git push origin HEAD:$GIT_BRANCH
           fi
 
-      - name: Show created files
+      - name: List created files
         run: |
           echo "Top-level files:"
-          ls -la | sed -n '1,200p'
-          echo "apps/api files:"
-          ls -la apps/api | sed -n '1,200p' || true
-          echo "apps/web files:"
-          ls -la apps/web | sed -n '1,200p' || true
-
-      - name: Finish
-        run: echo "Bootstrap job completed. Inspect the repository for the new scaffold files."
+          ls -la
+          echo "apps/api:"
+          ls -la apps/api || true
+          echo "apps/web:"
+          ls -la apps/web || true
