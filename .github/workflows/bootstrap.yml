@@ -1,12 +1,3 @@
-# Bootstrap workflow: create the initial scaffold files and commit them to the repo.
-# Usage:
-# 1) In your repo create/update the file at .github/workflows/bootstrap.yml and paste this content.
-# 2) Commit to main.
-# 3) In GitHub, open Actions → Bootstrap scaffold → Run workflow → Run workflow.
-#
-# The job runs with repository write permissions (GITHUB_TOKEN) and will create the scaffold files,
-# commit them and push to main. Review the created files after the run and delete this workflow if
-# you don't want it to be reusable.
 name: Bootstrap scaffold
 
 permissions:
