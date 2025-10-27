@@ -1,4 +1,7 @@
 {
   "name": "real-estate-api",
-  "version": "0.1.0"
+  "version": "0.1.0",
+  "dependencies": {
+    "zod": "^4.20.0"
+  }
 }
