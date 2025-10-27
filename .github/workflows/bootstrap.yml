@@ -1,1 +1,65 @@
+ - name: Create minimal scaffold via GitHub API
+    uses: actions/github-script@v6
+    with:
+      script: |
+        // This script will create a small set of scaffold files.
+        // We keep each file small to avoid YAML/indentation parsing issues.
+        const files = {
+          "README.md": "# Real Estate Platform\n\nMonorepo scaffold for the Real Estate Transaction Management Platform.\n\nStructure:\n- apps/web: Next.js (frontend placeholder)\n- apps/api: Express + TypeScript + Prisma (backend)\n- packages/shared: shared types/utilities\n\nThis initial commit includes a minimal scaffold, Prisma schema, example .env, and CI workflow.\n",
+          ".gitignore": "node_modules\n.env\n.env.local\n/dist\n/.next\n/apps/api/node_modules\n/apps/web/node_modules\n/packages/*/node_modules\n.DS_Store\n",
+          ".env.example": "# Frontend\nNEXT_PUBLIC_API_URL=http://localhost:4000/api/v1\n\n# Backend\nPORT=4000\nNODE_ENV=development\nDATABASE_URL=postgresql://user:password@localhost:5432/realestate_db\nJWT_SECRET=your-super-secret-key\n",
+          "apps/api/package.json": JSON.stringify({
+            name: "real-estate-api",
+            version: "0.1.0",
+            private: true,
+            main: "dist/index.js",
+            scripts: {
+              dev: "ts-node-dev --respawn --transpile-only src/index.ts",
+              build: "tsc -p .",
+              start: "node dist/index.js",
+            }
+          }, null, 2),
+          "apps/web/package.json": JSON.stringify({
+            name: "real-estate-web",
+            version: "0.1.0",
+            private: true,
+            scripts: { dev: "next dev -p 3000", build: "next build", start: "next start" }
+          }, null, 2),
+          "apps/web/src/pages/upload.tsx": "import React, { useState } from 'react';\n\nexport default function UploadPage(){\n  const [file, setFile] = useState<File | null>(null);\n  return (<div style={{padding:20}}><h2>Upload</h2><input type=\"file\" onChange={e=>setFile(e.target.files?.[0]??null)} /></div>);\n}\n",
+          "apps/api/src/index.ts": "import express from 'express';\nconst app = express();\napp.get('/api/v1/health', (_req, res)=> res.json({status:'ok'}));\napp.listen(process.env.PORT||4000);\n",
+        };
 
+        const owner = context.repo.owner;
+        const repo = context.repo.repo;
+        const committer = { name: "github-actions[bot]", email: "41898282+github-actions[bot]@users.noreply.github.com" };
+        for (const path of Object.keys(files)) {
+          const contentBase64 = Buffer.from(files[path], "utf8").toString("base64");
+          try {
+            // If file exists, update it (need sha)
+            const existing = await github.rest.repos.getContent({ owner, repo, path });
+            const sha = existing.data.sha;
+            await github.rest.repos.createOrUpdateFileContents({
+              owner, repo, path,
+              message: `chore(bootstrap): add/update ${path}`,
+              content: contentBase64,
+              sha,
+              committer
+            });
+            core.info(`Updated ${path}`);
+          } catch (err) {
+            // If 404, create file
+            if (err.status === 404 || err.message && err.message.includes("404")) {
+              await github.rest.repos.createOrUpdateFileContents({
+                owner, repo, path,
+                message: `chore(bootstrap): add ${path}`,
+                content: contentBase64,
+                committer
+              });
+              core.info(`Created ${path}`);
+            } else {
+              throw err;
+            }
+          }
+        }
+  - name: List top-level files
+    run: ls -la
