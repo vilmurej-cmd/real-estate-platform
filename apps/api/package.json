@@ -1,7 +1,6 @@
 {
   "name": "real-estate-api",
   "version": "0.1.0",
-  "type": "module",
   "scripts": {
     "test": "jest --runInBand --detectOpenHandles",
     "test:watch": "jest --watch"

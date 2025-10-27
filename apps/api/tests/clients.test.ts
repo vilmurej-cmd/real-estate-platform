@@ -1,11 +1,11 @@
 import request from 'supertest';
 import express from 'express';
-import { PrismaClient } from '@prisma/client';
 import clientsRouter from '../src/routes/clients.routes';
 
-// Mock PrismaClient
-jest.mock('@prisma/client', () => {
-  const mockPrismaClient = {
+// Mock the shared Prisma client
+jest.mock('../src/lib/prisma', () => ({
+  __esModule: true,
+  default: {
     client: {
       findMany: jest.fn(),
       count: jest.fn(),
@@ -14,9 +14,8 @@ jest.mock('@prisma/client', () => {
       update: jest.fn(),
       delete: jest.fn(),
     },
-  };
-  return { PrismaClient: jest.fn(() => mockPrismaClient) };
-});
+  },
+}));
 
 // Mock auth middleware
 jest.mock('../src/middleware/auth0.middleware');
@@ -31,8 +30,8 @@ describe('Clients API', () => {
     app.use(express.json());
     app.use('/api/v1/clients', clientsRouter);
 
-    // Get the mocked PrismaClient instance
-    prisma = new PrismaClient();
+    // Get the mocked Prisma instance
+    prisma = require('../src/lib/prisma').default;
   });
 
   afterEach(() => {
