@@ -1,103 +1,77 @@
 import { Router } from 'express';
-import prisma from '../lib/prisma';
+import { PrismaClient } from '@prisma/client';
+import { authenticateAuth0 } from '../middleware/auth0.middleware';
+import { requireRole } from '../middleware/role.middleware';
+import { createTransactionSchema, updateTransactionSchema, paginationSchema } from '../validators/zodSchemas';
+import { validateBody, validateQuery } from '../middleware/validate.middleware';
 
+const prisma = new PrismaClient();
 const router = Router();
 
-// GET /api/v1/transactions - List transactions with pagination
-router.get('/', async (req, res) => {
+// GET /api/v1/transactions
+router.get('/', authenticateAuth0, validateQuery(paginationSchema), async (req, res, next) => {
   try {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
+    const userId = (req as any).user?.sub;
+    const page = Number((req.query as any).page || 1);
+    const limit = Number((req.query as any).limit || 25);
     const skip = (page - 1) * limit;
 
-    const [transactions, total] = await Promise.all([
-      prisma.transaction.findMany({
-        skip,
-        take: limit,
-      }),
-      prisma.transaction.count(),
+    const [items, total] = await Promise.all([
+      prisma.transaction.findMany({ where: { userId }, orderBy: { updatedAt: 'desc' }, skip, take: limit }),
+      prisma.transaction.count({ where: { userId } })
     ]);
 
-    res.json({
-      data: transactions,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit),
-      },
-    });
-  } catch (error) {
-    res.status(500).json({ error: 'Internal server error' });
+    res.json({ data: items, meta: { total, page, limit } });
+  } catch (err) {
+    next(err);
   }
 });
 
-// POST /api/v1/transactions - Create a new transaction
-router.post('/', async (req, res) => {
+// POST /api/v1/transactions
+router.post('/', authenticateAuth0, requireRole(['agent', 'admin']), validateBody(createTransactionSchema), async (req, res, next) => {
   try {
-    const { propertyId, clientId, amount, status } = req.body;
-
-    // Basic validation
-    if (!propertyId || !clientId || !amount) {
-      return res.status(400).json({ error: 'PropertyId, clientId, and amount are required' });
-    }
-
-    const transaction = await prisma.transaction.create({
-      data: { propertyId, clientId, amount, status },
-    });
-
-    res.status(201).json(transaction);
-  } catch (error) {
-    res.status(500).json({ error: 'Internal server error' });
+    const userId = (req as any).user?.sub;
+    const payload = req.body;
+    const created = await prisma.transaction.create({ data: { ...payload, userId } });
+    res.status(201).json(created);
+  } catch (err) {
+    next(err);
   }
 });
 
-// GET /api/v1/transactions/:id - Get a specific transaction
-router.get('/:id', async (req, res) => {
+// GET /api/v1/transactions/:id
+router.get('/:id', authenticateAuth0, async (req, res, next) => {
   try {
     const { id } = req.params;
-    const transaction = await prisma.transaction.findUnique({
-      where: { id },
-    });
-
-    if (!transaction) {
-      return res.status(404).json({ error: 'Transaction not found' });
-    }
-
-    res.json(transaction);
-  } catch (error) {
-    res.status(500).json({ error: 'Internal server error' });
+    const tx = await prisma.transaction.findUnique({ where: { id } });
+    if (!tx) return res.status(404).json({ error: 'Transaction not found' });
+    res.json(tx);
+  } catch (err) {
+    next(err);
   }
 });
 
-// PUT /api/v1/transactions/:id - Update a transaction
-router.put('/:id', async (req, res) => {
+// PUT /api/v1/transactions/:id
+router.put('/:id', authenticateAuth0, requireRole(['agent', 'admin']), validateBody(updateTransactionSchema), async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { propertyId, clientId, amount, status } = req.body;
-
-    const transaction = await prisma.transaction.update({
-      where: { id },
-      data: { propertyId, clientId, amount, status },
-    });
-
-    res.json(transaction);
-  } catch (error) {
-    res.status(500).json({ error: 'Internal server error' });
+    const updated = await prisma.transaction.update({ where: { id }, data: req.body });
+    res.json(updated);
+  } catch (err: any) {
+    if (err?.code === 'P2025') return res.status(404).json({ error: 'Transaction not found' });
+    next(err);
   }
 });
 
-// DELETE /api/v1/transactions/:id - Delete a transaction
-router.delete('/:id', async (req, res) => {
+// DELETE /api/v1/transactions/:id
+router.delete('/:id', authenticateAuth0, requireRole(['admin']), async (req, res, next) => {
   try {
     const { id } = req.params;
-    await prisma.transaction.delete({
-      where: { id },
-    });
-
+    await prisma.transaction.delete({ where: { id } });
     res.status(204).send();
-  } catch (error) {
-    res.status(500).json({ error: 'Internal server error' });
+  } catch (err: any) {
+    if (err?.code === 'P2025') return res.status(404).json({ error: 'Transaction not found' });
+    next(err);
   }
 });
 
