@@ -58,7 +58,7 @@ router.put('/:id', authenticateAuth0, requireRole(['agent', 'admin']), validateB
     const updated = await prisma.transaction.update({ where: { id }, data: req.body });
     res.json(updated);
   } catch (err: any) {
-    if (err.code === 'P2025') return res.status(404).json({ error: 'Transaction not found' });
+    if (err?.code === 'P2025') return res.status(404).json({ error: 'Transaction not found' });
     next(err);
   }
 });
@@ -70,7 +70,7 @@ router.delete('/:id', authenticateAuth0, requireRole(['admin']), async (req, res
     await prisma.transaction.delete({ where: { id } });
     res.status(204).send();
   } catch (err: any) {
-    if (err.code === 'P2025') return res.status(404).json({ error: 'Transaction not found' });
+    if (err?.code === 'P2025') return res.status(404).json({ error: 'Transaction not found' });
     next(err);
   }
 });

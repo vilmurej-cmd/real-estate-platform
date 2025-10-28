@@ -59,7 +59,7 @@ router.put('/:id', authenticateAuth0, requireRole(['agent', 'admin']), validateB
     const updated = await prisma.client.update({ where: { id }, data: payload });
     res.json(updated);
   } catch (err: any) {
-    if (err.code === 'P2025') return res.status(404).json({ error: 'Client not found' });
+    if (err?.code === 'P2025') return res.status(404).json({ error: 'Client not found' });
     next(err);
   }
 });
@@ -71,7 +71,7 @@ router.delete('/:id', authenticateAuth0, requireRole(['admin']), async (req, res
     await prisma.client.delete({ where: { id } });
     res.status(204).send();
   } catch (err: any) {
-    if (err.code === 'P2025') return res.status(404).json({ error: 'Client not found' });
+    if (err?.code === 'P2025') return res.status(404).json({ error: 'Client not found' });
     next(err);
   }
 });
