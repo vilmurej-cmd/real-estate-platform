@@ -1,0 +1,67 @@
+# Guarded workflow to regenerate apps/api/package-lock.json and push to the PR branch.
+# - Only runs when a maintainer adds the label "regen-lockfile"
+# - Only runs when the PR head repo is the same as the base repo (prevents running on forks)
+# - Uses GITHUB_TOKEN to push changes back to the PR branch
+on:
+  workflow_dispatch: {}
+  pull_request_target:
+    types:
+      - labeled
+      - opened
+      - reopened
+      - synchronize
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  regen-lockfile:
+    runs-on: ubuntu-latest
+    # Only proceed when the label exists AND the PR head repo is the same as the base repo
+    if: >
+      contains(github.event.pull_request.labels.*.name, 'regen-lockfile')
+      && github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - name: Checkout PR branch (merge ref)
+        uses: actions/checkout@v4
+        with:
+          # Check out the PR branch (head ref)
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: apps/api/package-lock.json
+
+      - name: Regenerate apps/api lockfile
+        working-directory: apps/api
+        run: |
+          # safest approach: try to install deterministically, then regenerate
+          npm ci || true
+          rm -rf node_modules package-lock.json
+          npm install
+
+          # If no changes to lockfile, exit cleanly
+          git add package-lock.json
+          if git diff --cached --quiet; then
+            echo "No changes to package-lock.json"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: regenerate apps/api package-lock.json [skip ci]"
+          # Push the regenerated lockfile back to the PR branch
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
+
+      - name: Comment on PR with results
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            I regenerated apps/api/package-lock.json and pushed the update to this branch. Please review and re-run CI if needed.
