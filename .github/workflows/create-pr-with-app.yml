@@ -1,1 +1,82 @@
+name: Create PR with GitHub App
 
+on:
+  workflow_dispatch:
+
+jobs:
+  create-pr:
+    runs-on: ubuntu-latest
+    env:
+      GH_OWNER: vilmurej-cmd
+      GH_REPO: real-estate-platform
+      PR_TITLE: "fix: add requireRole middleware for tests"
+      PR_BODY: "Adds requireRole middleware at apps/api/src/middleware so CI can compile routes."
+      PR_HEAD: "fix/add-role-middleware"
+      PR_BASE: "main"
+    steps:
+      - name: Checkout (not used to modify files, but useful for logs)
+        uses: actions/checkout@v4
+
+      - name: Prepare app private key
+        # APP_PRIVATE_KEY must be added to repository secrets (see instructions below)
+        run: |
+          echo "$APP_PRIVATE_KEY" > /tmp/app_private_key.pem
+          chmod 600 /tmp/app_private_key.pem
+
+      - name: Install Node and dependencies
+        run: |
+          sudo npm ci -g npm@latest
+          npm init -y
+          npm install @octokit/rest @octokit/auth-app
+
+      - name: Create PR using GitHub App installation token
+        env:
+          GH_APP_ID: ${{ secrets.GH_APP_ID }}
+          GH_INSTALLATION_ID: ${{ secrets.GH_INSTALLATION_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
+        run: |
+          node -e "
+          const fs = require('fs');
+          const { Octokit } = require('@octokit/rest');
+          const { createAppAuth } = require('@octokit/auth-app');
+
+          (async () => {
+            const appId = process.env.GH_APP_ID;
+            const installationId = process.env.GH_INSTALLATION_ID;
+            const privateKey = process.env.APP_PRIVATE_KEY;
+
+            if (!appId || !installationId || !privateKey) {
+              console.error('Missing GH_APP_ID, GH_INSTALLATION_ID, or APP_PRIVATE_KEY secret.');
+              process.exit(1);
+            }
+
+            // create auth and get installation token
+            const auth = createAppAuth({
+              appId: appId,
+              privateKey: privateKey,
+              installationId: installationId,
+            });
+
+            const installationAuth = await auth({ type: 'installation' });
+            const installationToken = installationAuth.token;
+
+            const octokit = new Octokit({ auth: installationToken });
+
+            // create PR
+            const pr = await octokit.pulls.create({
+              owner: process.env.GH_OWNER,
+              repo: process.env.GH_REPO,
+              title: process.env.PR_TITLE,
+              head: process.env.PR_HEAD,
+              base: process.env.PR_BASE,
+              body: process.env.PR_BODY
+            });
+
+            console.log('PR created: ' + pr.data.html_url);
+            console.log('PR number: ' + pr.data.number);
+            console.log('Head sha: ' + pr.data.head.sha);
+          })().catch(err => {
+            console.error(err);
+            process.exit(1);
+          });
+          "
